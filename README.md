@@ -47,7 +47,7 @@ Final rating = **40% absolute + 60% relative**, mapped to a 1–10 scale.
 ### Install
 
 ```bash
-cd stock-rater
+cd kpiComp
 pip install -r requirements.txt
 ```
 
@@ -101,22 +101,19 @@ POST /api/clear-cache
 ## Project Structure
 
 ```
-stock-rater/
+kpiComp/
 ├── main.py              # FastAPI app (routes + web interface)
+├── data.py              # Yahoo Finance data fetching + caching + analysis pipeline
+├── rating.py            # Rating algorithm (KPI configs, scoring, formatting)
+├── sp500.py             # S&P 500 ticker list
+├── index.html           # Single-page web frontend
 ├── requirements.txt
-├── README.md
-├── app/
-│   ├── __init__.py
-│   ├── rating.py        # Rating algorithm (KPI configs, scoring, formatting)
-│   ├── data.py          # Yahoo Finance data fetching + caching + analysis pipeline
-│   └── sp500.py         # S&P 500 ticker list
-└── static/
-    └── index.html       # Single-page web frontend
+└── README.md
 ```
 
 ## Notes
 
 - First analysis for a given sector will be slow (~1-2 minutes) as it fetches data for all S&P 500 stocks in that sector. Subsequent analyses in the same sector use cached data.
-- The S&P 500 list is a static snapshot. Update `app/sp500.py` periodically for accuracy.
-- Rating algorithm weights and thresholds can be tuned in `app/rating.py`.
+- The S&P 500 list is a static snapshot. Update `sp500.py` periodically for accuracy.
+- Rating algorithm weights and thresholds can be tuned in `rating.py`.
 - Data is sourced from Yahoo Finance and is for informational purposes only — not financial advice.

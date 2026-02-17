@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Rater — Value Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0e17;
+            --bg-card: #111827;
+            --bg-card-hover: #1a2332;
+            --border: #1e293b;
+            --border-accent: #334155;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.15);
+            --green: #34d399;
+            --green-dim: rgba(52, 211, 153, 0.15);
+            --red: #f87171;
+            --red-dim: rgba(248, 113, 113, 0.15);
+            --yellow: #fbbf24;
+            --yellow-dim: rgba(251, 191, 36, 0.15);
+            --mono: 'DM Mono', 'Courier New', monospace;
+            --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        header h1 {
+            font-family: var(--mono);
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: -0.02em;
+        }
+
+        header p {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-top: 0.4rem;
+        }
+
+        /* --- Search Bar --- */
+        .search-section {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            font-family: var(--mono);
+            font-size: 1.1rem;
+            padding: 0.75rem 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            width: 280px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            text-transform: uppercase;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-dim);
+            text-transform: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-btn {
+            font-family: var(--sans);
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.75rem 1.75rem;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .search-btn:hover { opacity: 0.9; }
+        .search-btn:active { transform: scale(0.97); }
+        .search-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* --- Loading --- */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+
+        .loading.active { display: block; }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .loading p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .loading .loading-sub {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin-top: 0.3rem;
+        }
+
+        /* --- Error --- */
+        .error-msg {
+            display: none;
+            text-align: center;
+            padding: 1.25rem;
+            background: var(--red-dim);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: 8px;
+            color: var(--red);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .error-msg.active { display: block; }
+
+        /* --- Results --- */
+        .results {
+            display: none;
+        }
+
+        .results.active { display: block; }
+
+        /* Stock Header */
+        .stock-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .stock-info h2 {
+            font-family: var(--mono);
+            font-size: 1.5rem;
+            font-weight: 500;
+        }
+
+        .stock-info h2 .ticker {
+            color: var(--accent);
+        }
+
+        .stock-meta {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        .stock-meta span {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            background: var(--bg-card);
+            padding: 0.25rem 0.7rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+
+        /* Rating Circle */
+        .rating-display {
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .rating-circle {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+        }
+
+        .rating-circle svg {
+            transform: rotate(-90deg);
+            width: 100px;
+            height: 100px;
+        }
+
+        .rating-circle .bg-ring {
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 6;
+        }
+
+        .rating-circle .score-ring {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1s ease-out, stroke 0.3s;
+        }
+
+        .rating-value {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--mono);
+            font-size: 1.8rem;
+            font-weight: 500;
+        }
+
+        .rating-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .rating-sub {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        /* Score Bars (absolute / relative) */
+        .score-bars {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .score-bar-item {
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+        }
+
+        .score-bar-label {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .score-bar-label .score-num {
+            font-family: var(--mono);
+            color: var(--text);
+        }
+
+        .score-bar-track {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1s ease-out;
+        }
+
+        /* KPI Table */
+        .kpi-section h3 {
+            font-family: var(--mono);
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .kpi-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .kpi-table thead th {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+        }
+
+        .kpi-table thead th:not(:first-child) {
+            text-align: right;
+        }
+
+        .kpi-table tbody td {
+            padding: 0.7rem 0.75rem;
+            font-size: 0.88rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .kpi-table tbody td:not(:first-child) {
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+        }
+
+        .kpi-table tbody tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .kpi-name {
+            color: var(--text);
+        }
+
+        .kpi-weight {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            margin-left: 0.4rem;
+        }
+
+        .diff-positive {
+            color: var(--green);
+        }
+
+        .diff-negative {
+            color: var(--red);
+        }
+
+        .diff-neutral {
+            color: var(--text-dim);
+        }
+
+        .kpi-score-cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .kpi-score-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* Algorithm Explanation */
+        .algo-info {
+            margin-top: 2rem;
+            padding: 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .algo-info summary {
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            font-family: var(--mono);
+        }
+
+        .algo-info summary:hover {
+            color: var(--text-muted);
+        }
+
+        .algo-info p {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 0.75rem;
+            line-height: 1.7;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .stock-header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .kpi-table {
+                font-size: 0.8rem;
+            }
+
+            .kpi-table thead th,
+            .kpi-table tbody td {
+                padding: 0.5rem 0.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>$ stock-rater</h1>
+            <p>Value analysis on a 1–10 scale, benchmarked against S&P 500 sector peers</p>
+        </header>
+
+        <div class="search-section">
+            <input
+                type="text"
+                class="search-input"
+                id="tickerInput"
+                placeholder="Enter ticker (e.g. AAPL)"
+                maxlength="10"
+                autofocus
+            >
+            <button class="search-btn" id="analyzeBtn" onclick="analyze()">Analyze</button>
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing stock...</p>
+            <p class="loading-sub">Fetching KPIs & sector peers from Yahoo Finance. This may take a moment on first run.</p>
+        </div>
+
+        <div class="results" id="results">
+            <!-- Populated by JS -->
+        </div>
+
+        <details class="algo-info">
+            <summary>How the rating works</summary>
+            <p>
+                Each stock is scored on 10 financial KPIs (P/E, Forward P/E, P/B, EV/EBITDA, Debt/Equity,
+                ROE, Profit Margin, Revenue Growth, Current Ratio, Dividend Yield). Each KPI receives two
+                sub-scores: an <strong>absolute score</strong> (how does the value compare to universal
+                good/bad thresholds?) and a <strong>relative score</strong> (how does it compare to the
+                sector median among S&P 500 peers?). The final rating is a weighted combination: 40%
+                absolute + 60% relative. KPIs are weighted by importance (P/E and ROE carry more weight
+                than dividend yield, for example). The result is mapped to a 1–10 scale where 10 = best
+                value (cheapest) and 1 = worst value (most expensive).
+            </p>
+        </details>
+
+        <footer>
+            <p>Data sourced from Yahoo Finance. For informational purposes only — not financial advice.</p>
+            <p style="margin-top:0.3rem;">REST API available at <a href="/api/analyze/AAPL">/api/analyze/{ticker}</a></p>
+        </footer>
+    </div>
+
+    <script>
+        const tickerInput = document.getElementById('tickerInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loadingEl = document.getElementById('loading');
+        const errorEl = document.getElementById('errorMsg');
+        const resultsEl = document.getElementById('results');
+
+        // Enter key triggers analysis
+        tickerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') analyze();
+        });
+
+        async function analyze() {
+            const ticker = tickerInput.value.trim().toUpperCase();
+            if (!ticker) {
+                showError('Please enter a stock ticker.');
+                return;
+            }
+
+            // Reset UI
+            errorEl.classList.remove('active');
+            resultsEl.classList.remove('active');
+            loadingEl.classList.add('active');
+            analyzeBtn.disabled = true;
+
+            try {
+                const resp = await fetch(`/api/analyze/${encodeURIComponent(ticker)}`);
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    throw new Error(data.detail || 'Analysis failed.');
+                }
+
+                renderResults(data);
+            } catch (err) {
+                showError(err.message || 'Something went wrong. Please try again.');
+            } finally {
+                loadingEl.classList.remove('active');
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.classList.add('active');
+        }
+
+        function getRatingColor(rating) {
+            if (rating >= 7) return 'var(--green)';
+            if (rating >= 4) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        function getRatingLabel(rating) {
+            if (rating >= 8) return 'Excellent Value';
+            if (rating >= 7) return 'Good Value';
+            if (rating >= 5.5) return 'Fair Value';
+            if (rating >= 4) return 'Slightly Expensive';
+            if (rating >= 2.5) return 'Expensive';
+            return 'Very Expensive';
+        }
+
+        function getDiffClass(diffRaw, lowerIsBetter) {
+            if (diffRaw === null || diffRaw === undefined) return 'diff-neutral';
+            if (lowerIsBetter) {
+                return diffRaw < 0 ? 'diff-positive' : diffRaw > 0 ? 'diff-negative' : 'diff-neutral';
+            } else {
+                return diffRaw > 0 ? 'diff-positive' : diffRaw < 0 ? 'diff-negative' : 'diff-neutral';
+            }
+        }
+
+        function getScoreDotColor(score) {
+            if (score === null || score === undefined) return 'var(--text-dim)';
+            if (score >= 0.65) return 'var(--green)';
+            if (score >= 0.4) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        function renderResults(data) {
+            const rating = data.rating.overall_rating;
+            const color = getRatingColor(rating);
+            const label = getRatingLabel(rating);
+
+            // SVG ring calculation
+            const radius = 42;
+            const circumference = 2 * Math.PI * radius;
+            const progress = (rating - 1) / 9; // 0 to 1
+            const dashoffset = circumference * (1 - progress);
+
+            let kpiRows = data.kpi_comparison.map(kpi => {
+                const diffClass = getDiffClass(kpi.diff_raw, kpi.lower_is_better);
+                const combined = kpi.kpi_score?.combined;
+                const dotColor = getScoreDotColor(combined);
+                const scoreText = combined !== null && combined !== undefined
+                    ? (combined * 10).toFixed(1)
+                    : '—';
+
+                return `
+                    <tr>
+                        <td>
+                            <span class="kpi-name">${kpi.display_name}</span>
+                            <span class="kpi-weight">${kpi.weight}</span>
+                        </td>
+                        <td>${kpi.stock_value}</td>
+                        <td>${kpi.sector_avg}</td>
+                        <td class="${diffClass}">${kpi.difference}</td>
+                        <td>
+                            <span class="kpi-score-cell">
+                                <span class="kpi-score-dot" style="background:${dotColor}"></span>
+                                ${scoreText}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            resultsEl.innerHTML = `
+                <div class="stock-header">
+                    <div class="stock-info">
+                        <h2><span class="ticker">${data.ticker}</span> — ${data.company_name}</h2>
+                        <div class="stock-meta">
+                            <span>${data.sector}</span>
+                            <span>${data.industry}</span>
+                            <span>${data.sector_peer_count} S&P 500 peers</span>
+                        </div>
+                    </div>
+                    <div class="rating-display">
+                        <div class="rating-circle">
+                            <svg viewBox="0 0 100 100">
+                                <circle class="bg-ring" cx="50" cy="50" r="${radius}" />
+                                <circle class="score-ring" cx="50" cy="50" r="${radius}"
+                                    stroke="${color}"
+                                    stroke-dasharray="${circumference}"
+                                    stroke-dashoffset="${circumference}"
+                                    data-target="${dashoffset}"
+                                />
+                            </svg>
+                            <div class="rating-value" style="color:${color}">${rating}</div>
+                        </div>
+                        <div class="rating-label">${label}</div>
+                        <div class="rating-sub">1 = expensive · 10 = cheap</div>
+                    </div>
+                </div>
+
+                <div class="score-bars">
+                    <div class="score-bar-item">
+                        <div class="score-bar-label">
+                            <span>Absolute Score</span>
+                            <span class="score-num">${data.rating.absolute_score}/10</span>
+                        </div>
+                        <div class="score-bar-track">
+                            <div class="score-bar-fill" style="width:0%;background:${getRatingColor(data.rating.absolute_score)}"
+                                data-target="${((data.rating.absolute_score - 1) / 9) * 100}"></div>
+                        </div>
+                    </div>
+                    <div class="score-bar-item">
+                        <div class="score-bar-label">
+                            <span>Relative Score (vs Sector)</span>
+                            <span class="score-num">${data.rating.relative_score}/10</span>
+                        </div>
+                        <div class="score-bar-track">
+                            <div class="score-bar-fill" style="width:0%;background:${getRatingColor(data.rating.relative_score)}"
+                                data-target="${((data.rating.relative_score - 1) / 9) * 100}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi-section">
+                    <h3>KPI Comparison — ${data.ticker} vs. ${data.sector} Sector Median</h3>
+                    <table class="kpi-table">
+                        <thead>
+                            <tr>
+                                <th>KPI</th>
+                                <th>${data.ticker}</th>
+                                <th>Sector Avg</th>
+                                <th>Difference</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${kpiRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            resultsEl.classList.add('active');
+
+            // Animate the ring and bars after render
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    const ring = resultsEl.querySelector('.score-ring');
+                    if (ring) ring.style.strokeDashoffset = ring.dataset.target;
+
+                    resultsEl.querySelectorAll('.score-bar-fill').forEach(bar => {
+                        bar.style.width = bar.dataset.target + '%';
+                    });
+                }, 50);
+            });
+        }
+    </script>
+</body>
+</html>
